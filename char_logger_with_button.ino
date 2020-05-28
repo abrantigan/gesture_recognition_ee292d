@@ -10,7 +10,8 @@
 */
 
 #include <Arduino_LSM9DS1.h>
-int recordButton = A0;
+#define ACTIVATED LOW
+int recordButton = 14; //same pin as A0
 
 
 void setup() {
@@ -18,23 +19,21 @@ void setup() {
   while (!Serial);
   Serial.println("Started");
 
-  pinMode(recordButton, INPUT);
+  pinMode(recordButton, INPUT_PULLUP);
 
   if (!IMU.begin()) {
     Serial.println("Failed to initialize IMU!");
     while (1);
   }
-
 }
 
 void loop() {
   float x, y, z;
   if (IMU.accelerationAvailable()) {
     IMU.readAcceleration(x, y, z);
-    int buttonVal = analogRead(recordButton);
-    Serial.print(buttonVal >= 512 ? 1 : 0);
+    int buttonVal = digitalRead(recordButton);
+    Serial.print(buttonVal == ACTIVATED ? 1 : 0);
     Serial.print('\t');
-    
     Serial.print(x);
     Serial.print('\t');
     Serial.print(y);
