@@ -5,128 +5,148 @@ import numpy as np # Import numpy
 import matplotlib
 import matplotlib.pyplot as plt #import matplotlib library
 import matplotlib.animation as animation
+from matplotlib.animation import FuncAnimation
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import style
 import time
 
-
 ################## Draw live data ##################
-style.use('fivethirtyeight') 
-
-# Initialize figure
-fig = plt.figure()
-
-#3D axis
-ax1 = fig.add_subplot(111, projection='3d')
 
 # Creating our serial object named arduinoData
 arduinoData = serial.Serial('/dev/tty.usbmodem14101', 9600) 
 
-# Initialize program variables 
-prevs = {'prev_x':0,'prev_y':0,'prev_z':0,'prev_ax':0,'prev_ay':0,'prev_az':0}
+class GestureRemote:
+    def __init__(self, ms_delay, alpha=.5, max_display_len=50):
+        self.alpha = alpha
+        self.max_display_len = max_display_len
+        self.xs = [0] * max_display_len
+        self.ys = [0] * max_display_len
+        self.zs = [0] * max_display_len
+        self.dt = ms_delay / 1000.0 # seconds
+        self.prevs = {'prev_x':0,'prev_y':0,'prev_z':0,'prev_ax':0,'prev_ay':0,'prev_az':0}
+
+    # Update xs, ys, zs, prevs incorporating new data
+    def step(self):
+        while (arduinoData.inWaiting()==0): #Wait here until there is data
+            pass # do nothing
+
+        bytesToRead = arduinoData.inWaiting()
+        fullString = arduinoData.read(bytesToRead)
+        arduinoString = fullString.splitlines()[-2] #Last full reading
+        dataArray = np.array(arduinoString.decode().replace('\r\n','').split('\t')).astype(np.float)   #Split it into an array called dataArray
+        buttonPressed = dataArray[0]
+        print("dataArray: ", dataArray)
+
+        if buttonPressed:
+            # Get most recent measurements 
+            ax, ay, az = dataArray[1], dataArray[2], dataArray[3]
+            az -= .98 # zero center/account for gravity 
+
+            # Combine current and prev measurements to help with noise 
+            ax = self.alpha * ax + (1 - self.alpha) * self.prevs['prev_ax']
+            ay = self.alpha * ay + (1 - self.alpha) * self.prevs['prev_ay']
+            az = self.alpha * az + (1 - self.alpha) * self.prevs['prev_az']
+
+            MIN_ACCEL_THRESH = .05 # trying this out to prevent noise around zero causing movements when there aren't any
+            if abs(ax) < MIN_ACCEL_THRESH: ax = 0
+            if abs(ay) < MIN_ACCEL_THRESH: ay = 0
+            if abs(az) < MIN_ACCEL_THRESH: az = 0
+
+            # Integrate acceleration to get position
+            posx = np.sign(ax) * ax ** 2 / 2.0 * self.dt + self.prevs['prev_x']
+            posy = np.sign(ay) * ay ** 2 / 2.0 * self.dt + self.prevs['prev_y']
+            posz = np.sign(az) * az ** 2 / 2.0 * self.dt + self.prevs['prev_z']
+
+            # Add to data points to be displayed, accounting for different coordinate systems between arduino imu and real world
+            self.xs.append(posx) 
+            self.ys.append(posy) 
+            self.zs.append(posz)
+            
+            # update previous values
+            self.prevs['prev_x'], self.prevs['prev_y'], self.prevs['prev_z'] = posx, posy, posz
+            self.prevs['prev_ax'], self.prevs['prev_ay'], self.prevs['prev_az'] = ax, ay, az
+
+            self.xs = self.xs[-self.max_display_len:]
+            self.ys = self.ys[-self.max_display_len:]
+            self.zs = self.zs[-self.max_display_len:]
+
+        else: 
+            self.xs = [] 
+            self.ys = [] 
+            self.zs = [] 
+            self.th_x = 0
+            self.th_y = 0
+            self.th_z = 0
+            self.prevs = {'prev_x':0,'prev_y':0,'prev_z':0,'prev_ax':0,'prev_ay':0,'prev_az':0}
+ 
+
+
+#------------------------------------------------------------
+# set up initial state and global variables
 alpha = .5
-ms_delay = 100 # number of milliseconds between graph update
-dt = ms_delay / 1000.0 # time passed between position updates in seconds
-max_display_len = 100 
-xs = [0] * max_display_len
-ys = [0] * max_display_len
-zs = [0] * max_display_len
-t = range(max_display_len)
+# ms_delay = 100
+ms_delay = 1000 # number of milliseconds  ## CHANGE: made this larger to increase dt, then all pos values
+max_display_len= 50
+gestureRemote = GestureRemote(ms_delay, alpha, max_display_len)
 
 
-def animate(i, xs, ys, zs, prevs):
-    while (arduinoData.inWaiting()==0): #Wait here until there is data
-        pass # do nothing
-    
-    # arduinoString = arduinoData.readline() #read the line of text from the serial port
-    # dataArray = np.array(arduinoString.decode().replace('\r\n','').split('\t')).astype(np.float)   #Split it into an array called dataArray
-    # print(dataArray)
+#------------------------------------------------------------
+# set up figure and animation
+style.use('fivethirtyeight') 
+fig = plt.figure()
+ax_3D = fig.add_subplot(211, projection='3d')
+ax_2D = fig.add_subplot(212)
 
-    bytesToRead = arduinoData.inWaiting()
-    fullString = arduinoData.read(bytesToRead)
-    #print(fullString.splitlines())
-    arduinoString = fullString.splitlines()[-2] #Last full reading
-    dataArray = np.array(arduinoString.decode().replace('\r\n','').split('\t')).astype(np.float)   #Split it into an array called dataArray
-    print(dataArray)
+# line, = ax1.plot([],[],lw=2) # 2d
+AX_LIM = .5
+def init():
+    ax_3D.plot([],[],[])
+    ax_3D.set_xlim3d(-AX_LIM, AX_LIM)
+    ax_3D.set_ylim3d(-AX_LIM, AX_LIM)
+    ax_3D.set_zlim3d(-AX_LIM, AX_LIM)
+    ax_3D.set_xlabel('pos_x')
+    ax_3D.set_ylabel('pos_y')
+    ax_3D.set_zlabel('pos_z')
+    ax_2D.plot([],[])
+    ax_2D.set_xlim(-AX_LIM, AX_LIM)
+    ax_2D.set_ylim(-AX_LIM, AX_LIM)
+    ax_2D.set_xlabel('pos_x')
+    ax_2D.set_ylabel('pos_y')
 
-    buttonPressed = dataArray[0]
 
-    if buttonPressed:
-        # Get most recent measurements 
-        ax, ay, az = dataArray[1], dataArray[2], dataArray[3]
-        ay *= -1 # did this because my Arduino is facing backwards. might not need it
-        az -= .98 # zero center/account for gravity
+    return [ax_3D, ax_2D]
 
-        # Combine current and prev measurements to help with noise 
-        ax = alpha * ax + (1 - alpha) * prevs['prev_ax']
-        ay = alpha * ay + (1 - alpha) * prevs['prev_ay']
-        az = alpha * az + (1 - alpha) * prevs['prev_az']
+def animate(i):
+    global gestureRemote
 
-        # Integrate acceleration to get position
-        posx = np.sign(ax) * ax ** 2 / 2.0 * dt + prevs['prev_x']
-        posy = np.sign(ay) * ay ** 2 / 2.0 * dt + prevs['prev_y']
-        posz = np.sign(az) * az ** 2 / 2.0 * dt + prevs['prev_z']
+    gestureRemote.step()
+    xs = gestureRemote.xs
+    ys = gestureRemote.ys
+    zs = gestureRemote.zs
 
-        print(posx)
-        print(posy)
-        print(posz)
-
-        # Add to data points to be displayed, accounting for different coordinate systems between arduino imu and real world
-        xs.append(posx) 
-        ys.append(posy) 
-        zs.append(posz)
-
-        #t.append(dt.datetime.now().strftime('%H:%M:%S.%f')) 
-        
-        # update previous values
-        prevs['prev_x'], prevs['prev_y'], prevs['prev_z'] = posx, posy, posz
-        prevs['prev_ax'], prevs['prev_ay'], prevs['prev_az'] = ax, ay, az
-        ax1.clear()
-
-        xs = xs[-max_display_len:]
-        ys = ys[-max_display_len:]
-        zs = zs[-max_display_len:]
-        #t = range(max_display_len)
-
-        # wanted to only draw most recent 50 samples, but this needs to be improved
-        #ax1.plot(xs[min(0, len(xs)-max_display_len):], ys[min(0, len(ys)-max_display_len):])
-        ax1.plot(xs * 100, ys * 100, zs * 100)
-        print(xs * 100)
-        print(ys * 100)
-        print(zs * 100)
-        ax1.set_xlim3d(-0.5, 0.5)
-        ax1.set_ylim3d(-0.5, 0.5)
-        ax1.set_zlim3d(-0.5, 0.5)
+    if len(xs) == 0:
+        ax_3D.clear()
+        ax_2D.clear()
     else:
-        # Todo: Erase data to only show data from current sample
-        # prevs['prev_x'], prevs['prev_y'], prevs['prev_z'] = 0, 0, 0
-        # prevs['prev_ax'], prevs['prev_ay'], prevs['prev_az'] = 0, 0, 0
-        ax1.clear()
-        xs = [0] * max_display_len
-        ys = [0] * max_display_len
-        zs = [0] * max_display_len
-        ax1.set_xlim3d(-0.5, 0.5)
-        ax1.set_ylim3d(-0.5, 0.5)
-        ax1.set_zlim3d(-0.5, 0.5)
-        prevs = {'prev_x':0,'prev_y':0,'prev_z':0,'prev_ax':0,'prev_ay':0,'prev_az':0}
+        ax_3D.plot(xs,ys,zs,'g')
+        ax_2D.plot(ys,zs,'g')
 
+    ax_3D.set_xlim3d(-AX_LIM, AX_LIM)
+    ax_3D.set_ylim3d(-AX_LIM, AX_LIM)
+    ax_3D.set_zlim3d(-AX_LIM, AX_LIM)
+    ax_3D.set_xlabel('pos_x')
+    ax_3D.set_ylabel('pos_y')
+    ax_3D.set_zlabel('pos_z')
+    ax_2D.set_xlim(-AX_LIM, AX_LIM)
+    ax_2D.set_ylim(-AX_LIM, AX_LIM)
+    ax_2D.set_xlabel('pos_y')
+    ax_2D.set_ylabel('pos_z')
 
+    return [ax_3D, ax_2D]
 
-    arduinoData.flushInput()
-
-
-while (arduinoData.inWaiting()==0): #Wait here until there is data
-        pass # do nothing
-
-
-def main():
-    ani = animation.FuncAnimation(fig, animate, fargs = (xs, ys, zs, prevs), interval=ms_delay)
-    plt.show()
-
-    arduinoData.close()
-
-
-if __name__ == "__main__":
-    main()
+interval = 100
+ani = animation.FuncAnimation(fig, animate, interval=interval, blit=True, init_func=init)
+plt.show()
+arduinoData.close()
 
 
