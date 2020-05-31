@@ -1,0 +1,4 @@
+
+*.csv
+collect_data1.ipynb
+.ipynb_checkpoints/collect_data1-checkpoint.ipynb
