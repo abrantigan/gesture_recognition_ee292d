@@ -11,10 +11,21 @@ MIT license: www.opensource.org/licenses/mit-license.php
 
 import re
 from collections import Counter
+import serial
 
 def words(text): return re.findall(r'\w+', text.lower())
 
 WORDS = Counter(words(open('big.txt').read()))
+LETTERS = 'abcdefghijklmnopqrstuvwxyz'
+SIMILARLETTERS = {'a':['h'],'b':['r','k','e','f'],'c':['o','g','q','l'],
+                  'd':['r','p','v','x','y'],'e':['f','k','b','r'],'f':['e','k','r','b'],
+                  'g':['c','o','q','s'],'h':['a'],'i':['z','j','l','t'],'j':['i','l'],
+                  'k':['f','e','r','b'],'l':['z','i','j','c','u','s'],'m':['n','w'],
+                  'n':['m','w'],'o':['c','g','q','u'],'p':['d','r'],'q':['s','o','g','c'],
+                  'r':['f','k','b','e','d','p'],'s':['q','g','c','l','z'],
+                  't':['f','x','z','i'],'u':['v'],'v':['x','y','u','d','w'],
+                  'w':['n','m','v'],'x':['y','v','d'],'y':['x','v','d'],'z':['i','l','t','s']}
+    
 
 def P(word, N=sum(WORDS.values())): 
     "Probability of `word`."
@@ -26,7 +37,13 @@ def correction(word):
 
 def candidates(word): 
     "Generate possible spelling corrections for word."
-    return (known([word]) or known(edits1(word)) or known(edits2(word)) or [word])
+    # len2 = 0
+    #len3 = 0
+    # for w2 in edits2(word): len2+=1
+    #for w3 in commonedits3(word): len3+=1
+    # print(len2)
+    #print(len3)
+    return (known([word]) or known(edits1(word)) or known(edits2(word)) or known(edits3(word)) or [word])
 
 def known(words): 
     "The subset of `words` that appear in the dictionary of WORDS."
@@ -34,14 +51,27 @@ def known(words):
 
 def edits1(word):
     "All edits that are one incorrect letter change away from `word`."
-    letters    = 'abcdefghijklmnopqrstuvwxyz'
     splits     = [(word[:i], word[i:])    for i in range(len(word) + 1)]
-    replaces   = [L + c + R[1:]           for L, R in splits if R for c in letters]
+    replaces   = [L + c + R[1:]           for L, R in splits if R for c in LETTERS]
     return replaces
 
 def edits2(word): 
     "All edits that are two letter changes away from `word`."
     return (e2 for e1 in edits1(word) for e2 in edits1(e1))
+    
+def edits3(word):
+    "All edits that are three letter changes away from `word`."
+    return (e3 for e1 in edits1(word) for e2 in edits1(e1) for e3 in edits1(e2))
+    
+def commonedits1(word):
+    "All edits that are one common letter change away from `word`."
+    splits     = [(word[:i], word[i:])    for i in range(len(word) + 1)]
+    replaces   = [L + c + R[1:]           for L, R in splits if R for c in SIMILARLETTERS[R[0]]]
+    return replaces
+
+def commonedits3(word):
+    "All edits that are two letter changes plus one more common change away from `word`."
+    return (e3 for e2 in edits2(word) for e3 in commonedits1(e2))
 
 ################ Test Code 
 
@@ -54,10 +84,10 @@ def unit_tests():
     print(WORDS.most_common(10))
     assert 0.07 < P('the') < 0.08
     assert correction('korrectud') == 'corrected'           # replace 2
-    assert correction('bycycle') == 'bicycle'               # replace
+    assert correction('bycyclf') == 'bicycle'               # replace 2
     assert correction('hellp') == 'hello'                   # replace
     assert correction('word') == 'word'                     # known
-    assert correction('womderfol') == 'wonderful'           # replace
+    assert correction('womdedfol') == 'wonderful'           # replace 3
     assert P('quintessential') == 0
     assert correction('quintessential') == 'quintessential' # unknown
     return 'unit_tests pass'
@@ -86,5 +116,32 @@ def Testset(lines):
             for (right, wrongs) in (line.split(':') for line in lines)
             for wrong in wrongs.split()]
 
+def read_char(arduinoData):
+    while (arduinoData.inWaiting()==0): #Wait here until there is data
+        pass #do nothing
+    arduinoChar = arduinoData.read() #read the next char from the serial port
+    arduinoChar = chr(arduinoChar)
+    return arduinoChar 
+
 if __name__ == '__main__':
-    print(unit_tests())
+    ##### Run this before starting data collection!
+    arduinoData = serial.Serial('/dev/tty.usbmodem14501', 9600) #Creating our serial object named arduinoData
+    try:
+        word = ''
+        while True:
+            ch = read_char(arduinoData)
+            #ch = input()  #use this to test without arduino
+            if ch in LETTERS:
+                word += ch
+            else:
+                if not word == '':
+                    print(correction(word))
+                    word = ''
+                print(ch)
+    except KeyboardInterrupt:
+        if not word == '':
+            print(correction(word))
+        print('\n')
+        arduinoData.close()
+    
+    #print(unit_tests())
