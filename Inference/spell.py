@@ -35,6 +35,9 @@ def P(word, N=sum(WORDS.values())):
 
 def correction(word): 
     "Most probable spelling correction for word."
+    word = word.lower()
+    print('Infered Word', word)
+    print("Candidated Word: ", candidates(word))
     return max(candidates(word), key=P)
 
 def candidates(word): 
@@ -142,16 +145,17 @@ if __name__ == '__main__':
     try:
         word = ''
         while True:
-            ch = read_char_computer_inference()    
+            ch = read_char_computer_inference()  
+            print(ch)
             #ch = read_char(arduinoData) 
             #ch = input()  ##use this to test with computer letter input (no arduino)
-            if ch in LETTERS:
+            if(ch in LETTERS_SMALL or ch in LETTERS_SMALL.upper()):  
                 word += ch
             else:
                 if not word == '':
-                    print(correction(word))
+                    correction(word)
                     word = ''
-                print(ch)
+                # print(ch)
                 if ch == '.':
                     print('\n')
                     #arduinoData.close()

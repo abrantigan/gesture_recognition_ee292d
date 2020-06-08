@@ -4,7 +4,7 @@ import serial # import Serial Library
 
 
 MODEL_PATH = "cnv.tflite" # TODO: update model path 
-categories = {"C": 0, "A": 1, "T":2, "period":3} # TODO: update list of letters in correct order, matching train!
+categories = {"C": 0, "A": 1, "T":2, ".":3} # TODO: update list of letters in correct order, matching train!
 
 
 # MODEL_PATH = "model_lauren_AB.tflite" # TODO: update model path 
@@ -17,7 +17,8 @@ categories = {"C": 0, "A": 1, "T":2, "period":3} # TODO: update list of letters 
 SEQUENCE_LEN = 250 
 STATE_WAITING_FOR_PRESS = 0
 STATE_RECORDING = 1
-STATE_FINISHED = 2
+STATE_WAITING_FOR_UNPRESS = 2
+STATE_FINISHED = 3
 
 
 ######################  Get data samples!  ######################
@@ -49,7 +50,9 @@ def get_recording():
         elif state == STATE_RECORDING:
             recording = np.append(recording, new_sample[1:].reshape(1,-1), axis=0)
             num_samples_rec += 1
-            if num_samples_rec == SEQUENCE_LEN: state = STATE_FINISHED
+            if num_samples_rec == SEQUENCE_LEN: state = STATE_WAITING_FOR_UNPRESS
+        elif state == STATE_WAITING_FOR_UNPRESS:
+            state = STATE_FINISHED if (new_sample[0] ==0) else STATE_WAITING_FOR_UNPRESS
         # except: 
         #     continue
 
