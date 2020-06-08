@@ -12,11 +12,13 @@ MIT license: www.opensource.org/licenses/mit-license.php
 import re
 from collections import Counter
 import serial
+import inference
 
 def words(text): return re.findall(r'\w+', text.lower())
 
 WORDS = Counter(words(open('big.txt').read()))
 LETTERS = 'abcdefghijklmnopqrstuvwxyz'
+LETTERS_SMALL = 'act'
 SIMILARLETTERS = {'a':['h'],'b':['r','k','e','f'],'c':['o','g','q','l'],
                   'd':['r','p','v','x','y'],'e':['f','k','b','r'],'f':['e','k','r','b'],
                   'g':['c','o','q','s'],'h':['a'],'i':['z','j','l','t'],'j':['i','l'],
@@ -43,7 +45,7 @@ def candidates(word):
     #for w3 in commonedits3(word): len3+=1
     # print(len2)
     #print(len3)
-    return (known([word]) or known(edits1(word)) or known(edits2(word)) or known(edits3(word)) or [word])
+    return (known([word]) or known(edits1(word)) or known(edits2(word)) or [word])
 
 def known(words): 
     "The subset of `words` that appear in the dictionary of WORDS."
@@ -52,7 +54,7 @@ def known(words):
 def edits1(word):
     "All edits that are one incorrect letter change away from `word`."
     splits     = [(word[:i], word[i:])    for i in range(len(word) + 1)]
-    replaces   = [L + c + R[1:]           for L, R in splits if R for c in LETTERS]
+    replaces   = [L + c + R[1:]           for L, R in splits if R for c in LETTERS_SMALL]
     return replaces
 
 def edits2(word): 
@@ -122,15 +124,27 @@ def read_char(arduinoData):
     arduinoChar = arduinoData.read() #read the next char from the serial port
     arduinoChar = chr(arduinoChar)
     return arduinoChar 
+    
+## get next char version for on computer inference demo
+def read_char_computer_inference():
+    max_prob = 0
+    ch = ' '
+    probs = inference.inference()
+    for letter, prob in probs.items():
+        if prob > max_prob:
+            ch = letter
+            max_prob = prob
+    return ch
 
 if __name__ == '__main__':
     ##### Run this before starting data collection!
-    arduinoData = serial.Serial('/dev/tty.usbmodem14501', 9600) #Creating our serial object named arduinoData
+    #arduinoData = serial.Serial('/dev/tty.usbmodem14501', 9600) #Creating our serial object named arduinoData
     try:
         word = ''
         while True:
-            ch = read_char(arduinoData)
-            #ch = input()  #use this to test without arduino
+            ch = read_char_computer_inference()    
+            #ch = read_char(arduinoData) 
+            #ch = input()  ##use this to test with computer letter input (no arduino)
             if ch in LETTERS:
                 word += ch
             else:
@@ -138,10 +152,14 @@ if __name__ == '__main__':
                     print(correction(word))
                     word = ''
                 print(ch)
+                if ch == '.':
+                    print('\n')
+                    #arduinoData.close()
+                    break
     except KeyboardInterrupt:
         if not word == '':
             print(correction(word))
         print('\n')
-        arduinoData.close()
+        #arduinoData.close()
     
     #print(unit_tests())
