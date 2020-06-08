@@ -48,7 +48,17 @@ def candidates(word):
     #for w3 in commonedits3(word): len3+=1
     # print(len2)
     #print(len3)
-    return (known([word]) or known(edits1(word)) or [word])
+    
+    known_word = known([word])
+    if bool(known_word):
+        return known_word
+    edit1 = known(edits1(word))
+    if bool(edit1):
+        return edit1
+    else:
+        return (known(edits2(word)) or [word])
+    
+    #return (known([word]) or known(edits1(word)) or [word])
 
 def known(words): 
     "The subset of `words` that appear in the dictionary of WORDS."
