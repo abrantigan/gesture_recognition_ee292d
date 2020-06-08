@@ -57,8 +57,9 @@ def known(words):
 def edits1(word):
     "All edits that are one incorrect letter change away from `word`."
     splits     = [(word[:i], word[i:])    for i in range(len(word) + 1)]
+    inserts    = [L + c + R               for L, R in splits for c in LETTERS_SMALL]
     replaces   = [L + c + R[1:]           for L, R in splits if R for c in LETTERS_SMALL]
-    return replaces
+    return (replaces + inserts)
 
 def edits2(word): 
     "All edits that are two letter changes away from `word`."
