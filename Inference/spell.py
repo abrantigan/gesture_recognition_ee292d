@@ -16,9 +16,10 @@ import inference
 
 def words(text): return re.findall(r'\w+', text.lower())
 
+ERROR_PROB = 0.3
 WORDS = Counter(words(open('big.txt').read()))
 LETTERS = 'abcdefghijklmnopqrstuvwxyz'
-LETTERS_SMALL = 'act'
+LETTERS_SMALL = 'ant'
 SIMILARLETTERS = {'a':['h'],'b':['r','k','e','f'],'c':['o','g','q','l'],
                   'd':['r','p','v','x','y'],'e':['f','k','b','r'],'f':['e','k','r','b'],
                   'g':['c','o','q','s'],'h':['a'],'i':['z','j','l','t'],'j':['i','l'],
@@ -27,28 +28,22 @@ SIMILARLETTERS = {'a':['h'],'b':['r','k','e','f'],'c':['o','g','q','l'],
                   'r':['f','k','b','e','d','p'],'s':['q','g','c','l','z'],
                   't':['f','x','z','i'],'u':['v'],'v':['x','y','u','d','w'],
                   'w':['n','m','v'],'x':['y','v','d'],'y':['x','v','d'],'z':['i','l','t','s']}
-    
 
 def P(word, N=sum(WORDS.values())): 
+    "Probability of `word`."
+    return WORDS[word] / N
+
+def P_with_dist(word, detected, N=sum(WORDS.values())): 
     "Probability of `word`."
     return WORDS[word] / N
 
 def correction(word): 
     "Most probable spelling correction for word."
     word = word.lower()
-    print('Infered Word', word)
-    print("Candidated Word: ", candidates(word))
     return max(candidates(word), key=P)
 
 def candidates(word): 
     "Generate possible spelling corrections for word."
-    # len2 = 0
-    #len3 = 0
-    # for w2 in edits2(word): len2+=1
-    #for w3 in commonedits3(word): len3+=1
-    # print(len2)
-    #print(len3)
-    
     known_word = known([word])
     if bool(known_word):
         return known_word
@@ -57,8 +52,6 @@ def candidates(word):
         return edit1
     else:
         return (known(edits2(word)) or [word])
-    
-    #return (known([word]) or known(edits1(word)) or [word])
 
 def known(words): 
     "The subset of `words` that appear in the dictionary of WORDS."
@@ -67,9 +60,9 @@ def known(words):
 def edits1(word):
     "All edits that are one incorrect letter change away from `word`."
     splits     = [(word[:i], word[i:])    for i in range(len(word) + 1)]
-    inserts    = [L + c + R               for L, R in splits for c in LETTERS_SMALL]
+    #deletes    = [L + R[1:]               for L, R in splits if R]
     replaces   = [L + c + R[1:]           for L, R in splits if R for c in LETTERS_SMALL]
-    return (replaces + inserts)
+    return replaces
 
 def edits2(word): 
     "All edits that are two letter changes away from `word`."
@@ -99,11 +92,16 @@ def unit_tests():
     print(sum(WORDS.values()))
     print(WORDS.most_common(10))
     assert 0.07 < P('the') < 0.08
+    print(correction('ann'))
+    print(correction('antt'))
+    print(correction('tan'))
+    assert correction('caa') == 'cat'
+    assert correction('cct') == 'act'
     assert correction('korrectud') == 'corrected'           # replace 2
     assert correction('bycyclf') == 'bicycle'               # replace 2
     assert correction('hellp') == 'hello'                   # replace
     assert correction('word') == 'word'                     # known
-    assert correction('womdedfol') == 'wonderful'           # replace 3
+    #assert correction('womdedfol') == 'wonderful'           # replace 3
     assert P('quintessential') == 0
     assert correction('quintessential') == 'quintessential' # unknown
     return 'unit_tests pass'
@@ -132,6 +130,8 @@ def Testset(lines):
             for (right, wrongs) in (line.split(':') for line in lines)
             for wrong in wrongs.split()]
 
+### character reading code ####
+
 def read_char(arduinoData):
     while (arduinoData.inWaiting()==0): #Wait here until there is data
         pass #do nothing
@@ -156,17 +156,17 @@ if __name__ == '__main__':
     try:
         word = ''
         while True:
-            ch = read_char_computer_inference()  
+            ch = read_char_computer_inference().lower()
             print(ch)
             #ch = read_char(arduinoData) 
             #ch = input()  ##use this to test with computer letter input (no arduino)
-            if(ch in LETTERS_SMALL or ch in LETTERS_SMALL.upper()):  
+            if ch in LETTERS_SMALL or ch in LETTERS_SMALL.upper():
                 word += ch
             else:
                 if not word == '':
-                    correction(word)
+                    print(correction(word))
                     word = ''
-                # print(ch)
+                print(ch)
                 if ch == '.':
                     print('\n')
                     #arduinoData.close()
