@@ -26,6 +26,7 @@ limitations under the License.
 #include "tensorflow/lite/experimental/micro/micro_mutable_op_resolver.h"
 #include "tensorflow/lite/schema/schema_generated.h"
 #include "tensorflow/lite/version.h"
+#include "constants.h"
 
 namespace tflite {
 namespace ops {
@@ -34,6 +35,7 @@ TfLiteRegistration* Register_DEPTHWISE_CONV_2D();
 TfLiteRegistration* Register_MAX_POOL_2D();
 TfLiteRegistration* Register_AVERAGE_POOL_2D();
 TfLiteRegistration* Register_CONV_2D();
+TfLiteRegistration* Register_RESHAPE();
 TfLiteRegistration* Register_FULLY_CONNECTED();
 TfLiteRegistration* Register_SOFTMAX();
 }  // namespace micro
@@ -51,12 +53,14 @@ int input_length;
 // Create an area of memory to use for input, output, and intermediate arrays.
 // The size of this will depend on the model you're using, and may need to be
 // determined by experimentation.
-constexpr int kTensorArenaSize = 100 * 1024; // ORIG: 60*1024
+constexpr int kTensorArenaSize = 135 * 1024; // ORIG: 60*1024
 uint8_t tensor_arena[kTensorArenaSize];
 
 // Whether we should clear the buffer next time we fetch data
 bool should_clear_buffer = false;
 }  // namespace
+
+char * letters[4] = {"C", "A", "T", "period"};
 
 // The name of this function is important for Arduino compatibility.
 void setup() {
@@ -92,6 +96,8 @@ void setup() {
                                        tflite::ops::micro::Register_CONV_2D());
   micro_mutable_op_resolver.AddBuiltin(tflite::BuiltinOperator_AVERAGE_POOL_2D,
                                        tflite::ops::micro::Register_AVERAGE_POOL_2D());
+  micro_mutable_op_resolver.AddBuiltin(tflite::BuiltinOperator_RESHAPE,
+                                       tflite::ops::micro::Register_RESHAPE());
   micro_mutable_op_resolver.AddBuiltin(
       tflite::BuiltinOperator_FULLY_CONNECTED,
       tflite::ops::micro::Register_FULLY_CONNECTED());
@@ -118,7 +124,7 @@ void setup() {
   }
 
   input_length = model_input->bytes / sizeof(float);
-  printf("%d",input_length);
+  error_reporter->Report("%e",input_length);
 
   TfLiteStatus setup_status = SetupAccelerometer(error_reporter);
   if (setup_status != kTfLiteOk) {
@@ -130,24 +136,26 @@ void loop() {
   // Attempt to read new data from the accelerometer
   bool got_data = ReadAccelerometer(error_reporter, model_input->data.f,
                                     input_length, should_clear_buffer);
+
   // Don't try to clear the buffer again
   should_clear_buffer = false;
   // If there was no new data, wait until next time
   if (!got_data) return;
+  
   // Run inference, and report any errork
-  error_reporter->Report("trying invoke");
   TfLiteStatus invoke_status = interpreter->Invoke();
-  error_reporter->Report("done");
   if (invoke_status != kTfLiteOk) {
     error_reporter->Report("Invoke failed on index: %d\n", begin_index);
     return;
-  } else {
-    error_reporter->Report("Successful invoke");
   }
-//  // Analyze the results to obtain a prediction
+
+  // report output probabilities
+  for (int i = 0; i < NUM_GESTURES; i++) {
+    Serial.printf("Classification %s probability: %f\n", letters[i], interpreter->output(0)->data.f[i]);
+  }
   int gesture_index = PredictGesture(interpreter->output(0)->data.f);
   // Clear the buffer next time we read data
-  should_clear_buffer = gesture_index < 3;
+  should_clear_buffer = true;
   // Produce an output
   HandleOutput(error_reporter, gesture_index);
 }

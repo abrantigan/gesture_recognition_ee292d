@@ -33,28 +33,15 @@ void HandleOutput(tflite::ErrorReporter* error_reporter, int kind) {
   }
   // Print some ASCII art for each gesture
   if (kind == 0) {
-    error_reporter->Report("Classification: space\n");
+    error_reporter->Report("Classification: C\n");
   } else if (kind == 1) {
-    error_reporter->Report("Classification: backspace\n");
+    error_reporter->Report("Classification: A\n");
   } else if (kind == 2) {
-    error_reporter->Report("Classification: somethings wrong\n");
+    error_reporter->Report("Classification: T\n");
+  } else if (kind == 3) {
+    error_reporter->Report("Classification: period\n");
   } else {
-    error_reporter->Report("Classification: all probs 0?\n");
+    error_reporter->Report("Classification: :(\n");
   }
   
-//  if (kind == 0) {
-//    error_reporter->Report(
-//        "WING:\n\r*         *         *\n\r *       * *       "
-//        "*\n\r  *     *   *     *\n\r   *   *     *   *\n\r    * *       "
-//        "* *\n\r     *         *\n\r");
-//  } else if (kind == 1) {
-//    error_reporter->Report(
-//        "RING:\n\r          *\n\r       *     *\n\r     *         *\n\r "
-//        "   *           *\n\r     *         *\n\r       *     *\n\r      "
-//        "    *\n\r");
-//  } else if (kind == 2) {
-//    error_reporter->Report(
-//        "SLOPE:\n\r        *\n\r       *\n\r      *\n\r     *\n\r    "
-//        "*\n\r   *\n\r  *\n\r * * * * * * * *\n\r");
-//  }
 }

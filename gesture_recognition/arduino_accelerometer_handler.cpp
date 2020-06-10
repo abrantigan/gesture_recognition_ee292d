@@ -35,7 +35,6 @@ int sample_every_n;
 int sample_skip_counter = 1;
 // TODO: REPLACE WITH YOUR BUTTON PIN
 int recordButton = A0;
-int num_b_press;
 
 enum states {STATE_WAITING, STATE_COLLECTING_PRESS_DATA, STATE_READY_FOR_INFERENCE};
 int state;
@@ -58,14 +57,13 @@ TfLiteStatus SetupAccelerometer(tflite::ErrorReporter* error_reporter) {
 
   error_reporter->Report("Magic starts!");
   pinMode(recordButton, INPUT);
-  num_b_press = 0;
   state = STATE_WAITING;
 
   return kTfLiteOk;
 }
 
 bool ReadAccelerometer(tflite::ErrorReporter* error_reporter, float* input,
-                       int len, bool reset_buffer) {
+                       int length, bool reset_buffer) {
   // Clear the buffer if required, e.g. after a successful prediction
   if (reset_buffer) {
     memset(save_data, 0, SAVE_DATA_LEN * sizeof(float));
@@ -82,13 +80,9 @@ bool ReadAccelerometer(tflite::ErrorReporter* error_reporter, float* input,
       error_reporter->Report("Failed to read data");
       break;
     }
-    // Throw away this sample unless it's the nth
-//    if (sample_skip_counter != sample_every_n) {
-//      sample_skip_counter += 1;
-//      continue;
-//    }
-    
-//    error_reporter->Report("STATE: %d", state);
+
+
+//    state = STATE_READY_FOR_INFERENCE; // TODO: uncomment this when using button
     int buttonVal = analogRead(recordButton); // TODO: update this if you use digitalRead
     int b = buttonVal >= 512 ? 1 : 0;
     if (state == STATE_WAITING) {
@@ -107,38 +101,33 @@ bool ReadAccelerometer(tflite::ErrorReporter* error_reporter, float* input,
     // and flipping y and x order for compatibility with
     // model (sensor orientation is different on Arduino
     // Nano BLE Sense compared with SparkFun Edge)
-    save_data[begin_index++] = y * 1000;
-    save_data[begin_index++] = x * 1000;
-    save_data[begin_index++] = z * 1000;
+    save_data[begin_index++] = x;
+    save_data[begin_index++] = y;
+    save_data[begin_index++] = z - .98f;
     
     // Since we took a sample, reset the skip counter
-//    sample_skip_counter = 1;
     // If we reached the end of the circle buffer, reset
     if (begin_index >= SAVE_DATA_LEN) {
       begin_index = 0;
     }
-    new_data = true;
   }
 
-  // Skip this round if data is not ready yet
-//  if (!new_data) {
-//    return false;
-//  }
 
   // Check if we are ready for prediction or still pending more initial data
-//  if (pending_initial_data && begin_index >= NUM_SAMPLES_PER_CHUNK) {
-//    pending_initial_data = false;
-//  }
-//
+  if (pending_initial_data && begin_index >= NUM_SAMPLES_PER_CHUNK) {
+    pending_initial_data = false;
+  }
+  
 //  // Return if we don't have enough data
-//  if (pending_initial_data) {
-//    return false;
-//  }
+  if (pending_initial_data) {
+    return false;
+  }
+  
   if (state == STATE_WAITING || state == STATE_COLLECTING_PRESS_DATA) return false;
 
   // Copy the requested number of bytes to the provided input tensor
-  for (int i = 0; i < len; ++i) {
-    int ring_array_index = begin_index + i - len; // begin ind: 0--> 750, len: 250
+  for (int i = 0; i < length; ++i) {
+    int ring_array_index = begin_index + i - length; // begin ind: 0--> 750, len: 750
     if (ring_array_index < 0) {
       ring_array_index += SAVE_DATA_LEN;
     }
@@ -149,10 +138,5 @@ bool ReadAccelerometer(tflite::ErrorReporter* error_reporter, float* input,
   state = STATE_WAITING; // start over
   return true;
   
-//  if (state == STATE_READY_FOR_INFERENCE) {
-//    state = STATE_WAITING; // start over
-//    return true;
-//  }
-//  return false;
   
 }
