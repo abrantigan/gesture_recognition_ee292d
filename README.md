@@ -12,7 +12,10 @@ $ python data_collect.py
 ```
 
 Preprocess data to (sequence_len, 3) samples, stored with many recordings in a .txt file per person
-execute cells in chunk_data.ipynb
+execute cells in chunk_data.ipynb 
+```shell
+$ jupyter notebook chunk_data.ipynb
+```
 
 To visualize data:
 ```shell
