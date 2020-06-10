@@ -32,6 +32,7 @@ Follow instructions in README there
 ## 3. Test a Model on Real Data
 
 On a computer, test inference + autocorrect
+
 Update desired weight file path and corresponding classes in Inference/inference.py then:
 ```shell
 $ cd Inference
@@ -39,7 +40,9 @@ $ python spell.py
 ```
 
 On an Arduino, test inference using code in gesture_recognition folder
+
 Required Libraries: TensorflowLite, appropriate IMU library for your Arduino
+
 Open and run gesture_recognition.ino
 
 
