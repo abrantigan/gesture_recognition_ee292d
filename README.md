@@ -25,8 +25,10 @@ $ python drawData3D.py
 
 
 ## 2. Train a Model
-Train a model using code in repo: https://github.com/katherinekowalski/tensorflow/tree/master/tensorflow/lite/micro/examples/magic_wand/train
-Follow instructions in README there
+Train a model using code in repo below. Follow instructions in the README.md file there. For this project we did the random data split instead of the person data split. 
+
+https://github.com/katherinekowalski/tensorflow/tree/master/tensorflow/lite/micro/examples/magic_wand/train
+
 
 
 ## 3. Test a Model on Real Data
@@ -39,11 +41,7 @@ $ cd Inference
 $ python spell.py
 ```
 
-On an Arduino, test inference using code in gesture_recognition folder
-
-Required Libraries: TensorflowLite, appropriate IMU library for your Arduino
-
-Open and run gesture_recognition.ino
+On an Arduino, test inference using code in gesture_recognition folder. There are 2 required libraries: TensorflowLite and the appropriate IMU library for your Arduino. Open and run gesture_recognition.ino.
 
 
 
